@@ -1,4 +1,4 @@
-# GodOfHomelabing
+# Anton - GodOfHomelabing
 
 **Anton — the god-tier self-hosted homelab intelligence platform.**
 
