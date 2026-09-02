@@ -1,0 +1,29 @@
+services:
+  argus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: anton-argus:1.0.0
+    container_name: anton-argus
+    restart: unless-stopped
+    env_file:
+      - .env
+    network_mode: host
+    volumes:
+      - argus_data:/data
+      # Live-tune sources without rebuilding. Must NOT shadow the app/config
+      # Python package, so it mounts onto /app/config.
+      - ./config:/app/config:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8012/health', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  argus_data:

@@ -1,0 +1,71 @@
+# Sentinel observer tuning.
+#
+# Every observer type has one section. `enabled` can be flipped here; the
+# global SENTINEL_OBSERVERS env var is an additional on/off filter.
+# `interval` (seconds) is the collection cadence, `timeout` bounds one run.
+# Each observer ignores the fields it does not use.
+
+version: 1
+
+observers:
+  system:
+    enabled: true
+    interval: 30
+    params:
+      cpu_high: 80.0          # CPU% sustained threshold -> "high" state
+      memory_high: 80.0       # Memory% threshold -> "high"
+      disk_warn: 80.0         # Disk% -> "warn"
+      disk_critical: 90.0     # Disk% -> "critical"
+
+  docker:
+    enabled: true
+    interval: 30
+
+  router:
+    enabled: true
+    interval: 15
+    timeout: 3
+    params:
+      method: ping            # ping | tcp
+      host: ""                # empty = auto-detect default gateway
+      port: 80                # used when method is tcp
+      count: 1
+      deadline: 2             # ping deadline in seconds
+
+  watcher:
+    enabled: true
+    interval: 20
+    timeout: 5
+    params:
+      base_url: http://127.0.0.1:8008
+      # Endpoint shapes Sentinel understands. Watcher's API is still evolving;
+      # both list and object responses are tolerated, and failures become an
+      # "offline" observation that feeds the watcher_offline rule.
+      devices_path: /devices
+      events_path: /events
+
+  ups:
+    enabled: true
+    interval: 30
+    timeout: 5
+    params:
+      command: upsc
+      ups_name: ""            # empty = probe `upsc -l` for the first UPS
+
+  http:
+    enabled: true
+    interval: 60
+    targets:
+      - name: hermes
+        url: http://127.0.0.1:8002/health
+        expected_status: 200
+      - name: internet
+        url: https://1.1.1.1
+        expected_status: 200
+
+  network:
+    enabled: true
+    interval: 60
+    timeout: 5
+    params:
+      method: arp             # arp (reads /proc/net/arp) | ip (runs `ip neigh`)

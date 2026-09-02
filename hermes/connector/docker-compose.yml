@@ -1,0 +1,26 @@
+services:
+  hermes-connector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hermes-connector:1.0.0
+    container_name: hermes-connector
+    restart: unless-stopped
+    environment:
+      CONNECTOR_HERMES_URL: http://hermes:8000
+      CONNECTOR_INTERVAL_FLEET: "20"
+      CONNECTOR_INTERVAL_ENDPOINTS: "300"
+    volumes:
+      - connector_state:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - anton-net
+
+volumes:
+  connector_state:
+
+networks:
+  anton-net:
+    external: true

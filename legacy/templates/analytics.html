@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics · LEGACY{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <h1>Analytics</h1>
+
+    <p>Your journaling habits, quantified.</p>
+
+</div>
+
+{% if data.total_entries == 0 %}
+
+<div class="empty-state">
+
+    <h2>Not enough data yet.</h2>
+
+    <p>Write your first entries to unlock analytics.</p>
+
+</div>
+
+{% else %}
+
+<section class="dashboard-grid">
+
+    <div class="legacy-card">
+        <div class="card-label">Total Entries</div>
+        <h2>{{ data.total_entries }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Words Written</div>
+        <h2>{{ "{:,}".format(data.words_written) }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Average Words</div>
+        <h2>{{ data.average_words }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Avg Entries / Day</div>
+        <h2>{{ data.average_per_day }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Longest Entry</div>
+        <h2>{{ data.longest_entry }} words</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Shortest Entry</div>
+        <h2>{{ data.shortest_entry }} words</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Most Active Day</div>
+        <h2>{{ data.most_active_weekday.label }}</h2>
+        <p>{{ data.most_active_weekday.count }} entries</p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Most Active Hour</div>
+        <h2>{{ "%02d:00" | format(data.most_active_hour.label) }}</h2>
+        <p>{{ data.most_active_hour.count }} entries</p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">This Week</div>
+        <h2>{{ data.entries_this_week }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">This Month</div>
+        <h2>{{ data.entries_this_month }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Current Streak</div>
+        <h2>{{ data.current_streak }} day{% if data.current_streak != 1 %}s{% endif %}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Longest Streak</div>
+        <h2>{{ data.longest_streak }} day{% if data.longest_streak != 1 %}s{% endif %}</h2>
+    </div>
+
+</section>
+
+<div class="chart-grid">
+
+    {% if data.mood_distribution %}
+    <div class="chart-container">
+        <div class="card-label">Mood Distribution</div>
+        <canvas id="moodChart"></canvas>
+    </div>
+    {% endif %}
+
+    {% if data.entry_type_distribution %}
+    <div class="chart-container">
+        <div class="card-label">Entry Types</div>
+        <canvas id="typeChart"></canvas>
+    </div>
+    {% endif %}
+
+    {% if data.monthly_activity.labels %}
+    <div class="chart-container chart-wide">
+        <div class="card-label">Entries Per Month</div>
+        <canvas id="monthlyChart"></canvas>
+    </div>
+    {% endif %}
+
+    {% if data.hour_distribution %}
+    <div class="chart-container chart-wide">
+        <div class="card-label">Writing Time</div>
+        <canvas id="hourChart"></canvas>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if data.total_entries > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    var textColor = '#9aa3ad';
+    var borderColor = 'rgba(255,255,255,.06)';
+    var accentColor = '#d7b56d';
+    var colors = ['#d7b56d','#7ecf95','#6ba3e0','#e8a87c','#c58bb5','#8fc9a0','#e0c68c','#a8b8d8'];
+
+    function init(id, config) {
+        var el = document.getElementById(id);
+        if (el) new Chart(el, config);
+    }
+
+    var moodData = {{ data.mood_distribution | tojson }};
+    var moodLabels = Object.keys(moodData);
+    var moodValues = Object.values(moodData);
+    if (moodLabels.length) {
+        init('moodChart', {
+            type: 'pie',
+            data: {
+                labels: moodLabels,
+                datasets: [{
+                    data: moodValues,
+                    backgroundColor: colors.slice(0, moodLabels.length),
+                    borderColor: borderColor,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: textColor, font: { family: 'Inter', size: 11 }, padding: 16 }
+                    }
+                }
+            }
+        });
+    }
+
+    var typeData = {{ data.entry_type_distribution | tojson }};
+    var typeLabels = Object.keys(typeData);
+    var typeValues = Object.values(typeData);
+    if (typeLabels.length) {
+        init('typeChart', {
+            type: 'doughnut',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    data: typeValues,
+                    backgroundColor: colors.slice(0, typeLabels.length),
+                    borderColor: borderColor,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: textColor, font: { family: 'Inter', size: 11 }, padding: 16 }
+                    }
+                }
+            }
+        });
+    }
+
+    var monthlyData = {{ data.monthly_activity | tojson }};
+    if (monthlyData.labels.length && monthlyData.data.reduce(function(a,b){return a+b},0) > 0) {
+        init('monthlyChart', {
+            type: 'bar',
+            data: {
+                labels: monthlyData.labels,
+                datasets: [{
+                    label: 'Entries',
+                    data: monthlyData.data,
+                    backgroundColor: 'rgba(215,181,109,.5)',
+                    borderColor: accentColor,
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        ticks: { color: textColor, font: { family: 'Inter', size: 11 } },
+                        grid: { color: borderColor }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor, font: { family: 'Inter', size: 11 } },
+                        grid: { color: borderColor }
+                    }
+                }
+            }
+        });
+    }
+
+    var hourData = {{ data.hour_distribution | tojson }};
+    var hourLabels = Object.keys(hourData).map(function(h) { return h.padStart(2,'0') + ':00'; });
+    var hourValues = Object.values(hourData);
+    if (hourLabels.length) {
+        init('hourChart', {
+            type: 'bar',
+            data: {
+                labels: hourLabels,
+                datasets: [{
+                    label: 'Entries',
+                    data: hourValues,
+                    backgroundColor: 'rgba(107,163,224,.5)',
+                    borderColor: '#6ba3e0',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        ticks: { color: textColor, font: { family: 'Inter', size: 10 } },
+                        grid: { color: borderColor }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor, font: { family: 'Inter', size: 11 } },
+                        grid: { color: borderColor }
+                    }
+                }
+            }
+        });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

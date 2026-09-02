@@ -1,0 +1,64 @@
+# Argus sources. Every key is a collector name; `kind` selects the collector
+# type. The `params` block is interpreted per collector type (see app/sources).
+version: 1
+
+sources:
+  # --- RSS / news + security feeds -----------------------------------------
+  nvd:
+    kind: rss
+    enabled: false
+    interval: 1800
+    params:
+      feeds:
+        - https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
+
+  security_feeds:
+    kind: rss
+    enabled: true
+    interval: 900
+    params:
+      feeds:
+        - https://feeds.feedburner.com/TheHackersNews
+        - https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml
+
+  # --- Tracked websites / change detection ---------------------------------
+  tracked_sites:
+    kind: scrape
+    enabled: true
+    interval: 1800
+    params:
+      targets:
+        - name: example-announcements
+          url: https://www.example.com/announcements
+        - name: vendor-advisories
+          url: https://www.example.org/advisories
+
+  # --- OSINT APIs (only run when the API key is present in the environment) --
+  osint:
+    kind: osint
+    enabled: true
+    interval: 3600
+    params:
+      providers:
+        - name: shodan-host
+          url: https://api.shodan.io/shodan/host/{target}
+          api_key_env: ARGUS_SHODAN_KEY
+          items_path: data.vulns
+          title_path: .
+        - name: virustotal-file
+          url: https://www.virustotal.com/api/v3/files/{target}
+          api_key_env: ARGUS_VT_KEY
+          items_path: data.attributes.last_analysis_results
+          title_path: rule_name
+
+  # --- Public Telegram channels (t.me/s/<channel> mirror) -------------------
+  telegram:
+    kind: telegram
+    enabled: true
+    interval: 600
+    params:
+      channels:
+        - name: security-news
+          channel: cissp_lovers
+        - name: infosec-updates
+          channel: onelove_infosec

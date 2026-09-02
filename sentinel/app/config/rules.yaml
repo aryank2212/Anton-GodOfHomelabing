@@ -1,0 +1,217 @@
+# Sentinel correlation rules.
+#
+# Rules turn raw observations into Situations. Each rule has a `type`:
+#
+#   boolean — the `match` combination must hold (power outage example)
+#   absence — NO matching observation for `absent_for` seconds. Match on the
+#            healthy state (e.g. `state: online`) so the rule fires when the
+#            healthy signal disappears; observers always emit a status.
+#   count   — at least `threshold` matching observations inside `window_seconds`
+#
+# `match.all` / `match.any` / `match.not` combine Conditions. Every field of a
+# Condition is optional and may be a single value or a list. `tags` matches if
+# the observation carries any of the listed tags.
+#
+# Engine lifecycle: `stable_for` keeps a situation from flapping on, `cooldown`
+# throttles re-activation after resolution. Change rules here, no code changes.
+
+version: 1
+
+rules:
+  # --- Network -------------------------------------------------------------
+  - id: router_offline
+    name: Router Offline
+    description: The default gateway is unreachable.
+    type: boolean
+    category: network
+    severity: high
+    match:
+      all:
+        - source: router
+          object: gateway
+          state: offline
+    confidence:
+      base: 0.9
+      min: 0.5
+    stable_for: 30
+    cooldown: 600
+
+  - id: internet_offline
+    name: Internet Unreachable
+    description: The external reachability probe is failing.
+    type: boolean
+    category: network
+    severity: high
+    match:
+      all:
+        - source: http
+          object: http:internet
+          state: down
+    confidence:
+      base: 0.8
+      min: 0.5
+    stable_for: 60
+    cooldown: 900
+
+  # --- Power ---------------------------------------------------------------
+  - id: power_outage
+    name: Power Outage
+    description: Router offline while the UPS reports on battery.
+    type: boolean
+    category: power
+    severity: critical
+    match:
+      all:
+        - source: router
+          object: gateway
+          state: offline
+        - source: ups
+          object: ups
+          state: on_battery
+    confidence:
+      base: 0.98
+      min: 0.7
+    stable_for: 15
+    cooldown: 600
+
+  - id: ups_on_battery
+    name: UPS On Battery
+    description: Mains power is lost; the UPS is running on battery.
+    type: boolean
+    category: power
+    severity: medium
+    match:
+      all:
+        - source: ups
+          object: ups
+          state: on_battery
+    confidence:
+      base: 0.9
+      min: 0.6
+    stable_for: 10
+    cooldown: 300
+
+  - id: ups_low_battery
+    name: UPS Low Battery
+    description: The UPS reports a critically low battery.
+    type: boolean
+    category: power
+    severity: critical
+    match:
+      all:
+        - source: ups
+          object: ups
+          state: low_battery
+    confidence:
+      base: 0.95
+      min: 0.7
+    stable_for: 10
+    cooldown: 300
+
+  # --- Infrastructure ------------------------------------------------------
+  - id: watcher_offline
+    name: Watcher Offline
+    description: Watcher has produced no observations for a while.
+    type: absence
+    category: infrastructure
+    severity: high
+    match:
+      all:
+        - source: watcher
+          object: watcher
+          state: online
+    absent_for: 120
+    confidence:
+      base: 0.8
+      min: 0.5
+    stable_for: 30
+    cooldown: 900
+
+  - id: hermes_offline
+    name: Hermes Offline
+    description: Hermes has not answered the health probe for a while.
+    type: absence
+    category: infrastructure
+    severity: high
+    match:
+      all:
+        - source: http
+          object: http:hermes
+          state: up
+    absent_for: 240
+    confidence:
+      base: 0.8
+      min: 0.5
+    stable_for: 30
+    cooldown: 900
+
+  - id: container_unhealthy
+    name: Unhealthy Container
+    description: A container is unhealthy, exited or restarting repeatedly.
+    type: boolean
+    category: infrastructure
+    severity: medium
+    match:
+      all:
+        - source: docker
+          state: [unhealthy, exited, restarting]
+    confidence:
+      base: 0.9
+      min: 0.5
+    stable_for: 30
+    cooldown: 300
+
+  # --- Security / presence -------------------------------------------------
+  - id: unknown_device_joined
+    name: Unknown Device Joined
+    description: A device not in devices.yaml connected to the network.
+    type: boolean
+    category: security
+    severity: medium
+    match:
+      all:
+        - state: joined
+          tags: [unknown]
+    confidence:
+      base: 0.85
+      min: 0.5
+    stable_for: 0
+    cooldown: 300
+
+  - id: unknown_device_present
+    name: Unknown Device Present
+    description: An unknown device is currently on the network.
+    type: boolean
+    category: security
+    severity: low
+    match:
+      all:
+        - source: presence
+          object: house
+          state: unknown_present
+    confidence:
+      base: 0.85
+      min: 0.5
+    stable_for: 60
+    cooldown: 1800
+
+  # --- System --------------------------------------------------------------
+  - id: resource_pressure
+    name: System Resource Pressure
+    description: CPU and memory are both running hot.
+    type: boolean
+    category: system
+    severity: medium
+    match:
+      all:
+        - source: system
+          object: cpu
+          state: high
+        - source: system
+          object: memory
+          state: high
+    confidence:
+      base: 0.75
+      min: 0.4
+    stable_for: 90
+    cooldown: 600

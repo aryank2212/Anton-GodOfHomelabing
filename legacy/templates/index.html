@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}LEGACY{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+
+    <div class="greeting">
+
+        <span class="greeting-small">
+            {{ greeting }}
+        </span>
+
+        <h1>{{ current_user.display_name or current_user.username }}.</h1>
+
+        <p class="today">
+            {{ today }}<br>
+            Your permanent memory system is active.
+        </p>
+
+    </div>
+
+</section>
+
+<section class="actions">
+
+    <a href="/write" class="primary-action">
+        Continue Journal
+    </a>
+
+    <a href="/timeline" class="secondary-action">
+        Open Timeline
+    </a>
+
+</section>
+
+{% if total_entries == 0 and event_stats.total == 0 %}
+
+<div class="empty-state">
+
+    <h2>Welcome to Legacy</h2>
+
+    <p>
+        Your memories and system events will begin appearing here.
+    </p>
+
+</div>
+
+{% endif %}
+
+<h2 class="section-title">Memory</h2>
+
+<section class="dashboard-grid">
+
+    <div class="legacy-card">
+        <div class="card-label">Journal</div>
+        <h2>{{ dashboard.journal }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Dreams</div>
+        <h2>{{ dashboard.dreams }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Ideas</div>
+        <h2>{{ dashboard.ideas }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Reflections</div>
+        <h2>{{ dashboard.reflections }}</h2>
+    </div>
+
+    {% if top_tags %}
+    <div class="legacy-card">
+        <div class="card-label">Popular Topics</div>
+        <div class="top-tags">
+            {% for tag, count in top_tags %}
+            <div class="top-tag-row">
+                <a href="/timeline?q={{ tag }}" class="top-tag-name">{{ tag }}</a>
+                <span class="top-tag-count">({{ count }})</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="legacy-card">
+        <div class="card-label">Current Streak</div>
+        <h2>{{ dashboard.current_streak }} day{% if dashboard.current_streak != 1 %}s{% endif %}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Longest Streak</div>
+        <h2>{{ dashboard.longest_streak }} day{% if dashboard.longest_streak != 1 %}s{% endif %}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Words Written</div>
+        <h2>{{ "{:,}".format(dashboard.words_written) }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Entries This Week</div>
+        <h2>{{ dashboard.entries_this_week }}</h2>
+    </div>
+
+    {% if dashboard.most_used_mood %}
+    <div class="legacy-card">
+        <div class="card-label">Most Used Mood</div>
+        <h2>{{ dashboard.most_used_mood[0] | mood_display }}</h2>
+    </div>
+    {% endif %}
+
+    {% if dashboard.most_used_tag %}
+    <div class="legacy-card">
+        <div class="card-label">Most Used Tag</div>
+        <h2>
+            <a href="/timeline?q={{ dashboard.most_used_tag[0] }}" class="top-tag-name">{{ dashboard.most_used_tag[0] }}</a>
+        </h2>
+    </div>
+    {% endif %}
+
+</section>
+
+{% if is_admin %}
+
+<h2 class="section-title">Infrastructure</h2>
+
+<section class="dashboard-grid">
+
+    <div class="legacy-card">
+        <div class="card-label">System Events Today</div>
+        <h2>{{ event_stats.last_24h }}</h2>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Total Events</div>
+        <h2>{{ event_stats.total }}</h2>
+    </div>
+
+    {% if event_stats.by_source %}
+    {% for source, count in event_stats.by_source.items() %}
+    <div class="legacy-card">
+        <div class="card-label">{{ source | capitalize }}</div>
+        <h2>{{ count }}</h2>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+</section>
+
+<h2 class="section-title">Agents</h2>
+
+<section class="dashboard-grid">
+
+    {% if agent_status %}
+    {% for agent, status in agent_status.items() %}
+    <div class="legacy-card agent-card">
+        <div class="card-label">{{ agent | capitalize }}</div>
+        <div class="agent-stat-row">
+            <span class="agent-label">Memories</span>
+            <span class="agent-value">{{ status.memory_count }}</span>
+        </div>
+        <div class="agent-stat-row">
+            <span class="agent-label">Last active</span>
+            <span class="agent-value">
+                {% if status.last_active %}
+                {{ status.last_active | kanji_date }}
+                {% else %}
+                never
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+</section>
+
+{% if recent_events %}
+<h2 class="section-title">Recent Events</h2>
+
+<div class="event-feed">
+    {% for event in recent_events %}
+    <div class="event-item event-{{ event.severity }}">
+        <span class="event-source">{{ event.source | upper }}</span>
+        <span class="event-type">{{ event.event_type }}</span>
+        <span class="event-title">{{ event.title or event.event_type }}</span>
+        <span class="event-date">{{ event.created_at | kanji_date }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}
+
+<form action="/timeline" method="GET" class="search-form">
+
+    <input
+        type="text"
+        name="q"
+        placeholder="Search memories..."
+        class="search-input"
+        value="{{ q if q else '' }}"
+    >
+
+    <button class="search-btn">
+        Search
+    </button>
+
+</form>
+
+<h2 class="section-title">
+    Recent Memories
+</h2>
+
+{% if entries %}
+
+<ul class="entries-list">
+
+    {% for entry in entries %}
+
+    <li class="entry-item">
+
+        <span class="entry-date">
+            {{ entry.created_at | kanji_date }}
+        </span>
+
+        <span class="entry-type">
+            {{ entry.entry_type }}
+        </span>
+
+        <span class="entry-source-badge">
+            {{ entry.source }}
+        </span>
+
+        <h2 class="entry-title">
+            <a href="/entry/{{ entry.id }}">
+                {{ entry.title or "Untitled Memory" }}
+            </a>
+        </h2>
+
+        <div class="entry-excerpt">
+
+            {{ entry.content[:180] }}
+
+            {% if entry.content|length > 180 %}
+                ...
+            {% endif %}
+
+        </div>
+
+    </li>
+
+    {% endfor %}
+
+</ul>
+
+{% else %}
+
+<div class="empty-state">
+
+    <h2>
+        Begin your Legacy.
+    </h2>
+
+    <p>
+        Every remarkable life starts with a single page.
+    </p>
+
+    <a href="/write" class="primary-action">
+        Write First Entry
+    </a>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,49 @@
+services:
+  hermes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: anton-hermes:1.0.0
+    container_name: anton-hermes
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HERMES_DATABASE_URL: sqlite+aiosqlite:////data/hermes.db
+      HERMES_RULES_FILE: app/config/rules.yaml
+    ports:
+      # Bind to localhost only. Port is configurable via HERMES_PORT (default 8000).
+      - "127.0.0.1:${HERMES_PORT:-8000}:8000"
+    extra_hosts:
+      # Lets HERMES_NETDATA_URL=http://host.docker.internal:19999 reach the host.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - hermes_data:/data
+      # Live rules so docker/infra notification rules can be edited without a rebuild.
+      - ./app/config/rules.yaml:/app/app/config/rules.yaml:ro
+      # Lets `docker_restart` remediations and the bot's /cmd manage containers.
+      # The container runs as uid 1000; "docker" group on this host is gid 127.
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "127"
+    networks:
+      - anton-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  hermes_data:
+
+networks:
+  # Shared with phoenix (and friends) so they can publish events via the
+  # service name `hermes:8000` instead of the host port.
+  anton-net:
+    external: true

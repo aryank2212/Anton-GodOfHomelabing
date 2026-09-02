@@ -1,0 +1,11 @@
+# Extra MAC -> vendor mappings, merged over the small built-in table in
+# app/network/vendors.py. Keys are OUI prefixes (3 bytes, colons, lower case).
+# Add real-world OUIs here or expand the built-in table; the loader will use
+# the most specific match.
+
+version: 1
+
+vendors:
+  a4:83:e7: Apple
+  3c:06:30: Lenovo
+  98:9d:b2: AVM

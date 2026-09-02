@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar · LEGACY{% endblock %}
+
+{% block content %}
+
+{% set month_names = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+{% set prev_month_name = month_names[prev_month - 1] %}
+{% set next_month_name = month_names[next_month - 1] %}
+
+<div class="page-header">
+
+    <h1>{{ month_name }} {{ year }}</h1>
+
+    <p>Days with journal entries are highlighted.</p>
+
+</div>
+
+<div class="calendar-nav">
+
+    <a href="/calendar?year={{ prev_year }}&month={{ prev_month }}" class="secondary-action">
+        ← {{ prev_month_name }}
+    </a>
+
+    <a href="/calendar" class="secondary-action">
+        Today
+    </a>
+
+    <a href="/calendar?year={{ next_year }}&month={{ next_month }}" class="secondary-action">
+        {{ next_month_name }} →
+    </a>
+
+</div>
+
+<div class="calendar-grid">
+
+    <div class="calendar-row calendar-header-row">
+        <span class="calendar-weekday">Sun</span>
+        <span class="calendar-weekday">Mon</span>
+        <span class="calendar-weekday">Tue</span>
+        <span class="calendar-weekday">Wed</span>
+        <span class="calendar-weekday">Thu</span>
+        <span class="calendar-weekday">Fri</span>
+        <span class="calendar-weekday">Sat</span>
+    </div>
+
+    {% for week in grid %}
+    <div class="calendar-row">
+        {% for cell in week %}
+        <div class="calendar-cell
+            {% if cell and cell.is_today %}calendar-today{% endif %}
+            {% if cell and cell.has_entries %}calendar-has-entries{% endif %}
+            {% if cell and cell.day == selected_day and selected_entries %}calendar-selected{% endif %}">
+            {% if cell %}
+            <a href="/calendar?year={{ year }}&month={{ month }}&day={{ cell.day }}" class="calendar-day-link">
+                {{ cell.day }}
+            </a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+</div>
+
+{% if selected_entries %}
+
+<h2 class="section-title">
+    Entries for {{ month_name }} {{ selected_day }}, {{ year }}
+</h2>
+
+<ul class="entries-list">
+
+    {% for entry in selected_entries %}
+
+    <li class="entry-item">
+
+        <span class="entry-date">
+            {{ entry.created_at.strftime("%H:%M") }}
+        </span>
+
+        <span class="entry-type">
+            {{ entry.entry_type }}
+        </span>
+
+        <h2 class="entry-title">
+            <a href="/entry/{{ entry.id }}">
+                {{ entry.title or "Untitled Memory" }}
+            </a>
+        </h2>
+
+        <div class="entry-excerpt">
+
+            {{ entry.content[:180] }}
+
+            {% if entry.content|length > 180 %}
+                ...
+            {% endif %}
+
+        </div>
+
+    </li>
+
+    {% endfor %}
+
+</ul>
+
+{% endif %}
+
+{% endblock %}

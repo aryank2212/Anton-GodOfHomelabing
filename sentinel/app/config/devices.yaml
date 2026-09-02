@@ -1,0 +1,31 @@
+# Known devices.
+#
+# Devices listed here are "known" to Sentinel: they get a friendly name, an
+# owner (used by the presence engine) and a category. MAC addresses should be
+# lower case with colons. Any device seen on the network that is NOT in this
+# list is treated as an unknown device.
+
+version: 1
+
+devices:
+  - name: Router
+    mac: 98:9d:b2:a9:9f:8f
+    owner: Network
+    category: router
+
+  - name: Oracle Laptop
+    mac: 58:02:05:62:60:f6
+    owner: Aryan
+    category: laptop
+
+  - name: Aryan's Phone
+    mac: a4:83:e7:12:34:56
+    owner: Aryan
+    category: phone
+    aliases: [aryan-phone]
+
+  - name: Aryan's Laptop
+    mac: 3c:06:30:ab:cd:ef
+    owner: Aryan
+    category: laptop
+    aliases: [aryan-laptop]

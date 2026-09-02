@@ -1,0 +1,47 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: watcher-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: watcher
+      POSTGRES_USER: watcher
+      POSTGRES_PASSWORD: watcher123
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5438:5432"
+
+  watchyourlan:
+    image: aceberg/watchyourlan:latest
+    container_name: watcher-lan
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Kolkata
+      IFACES: enp37s0
+    volumes:
+      - ./data/watchyourlan:/data
+  
+  ntopng:
+    image: ntop/ntopng:latest
+    container_name: watcher-ntopng
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command:
+      - "-i"
+      - "enp37s0"
+      - "-w"
+      - "3007"
+    volumes:
+      - ./data/ntopng:/var/lib/ntopng
+
+  redis:
+    image: redis:7-alpine
+    container_name: watcher-redis
+    restart: unless-stopped

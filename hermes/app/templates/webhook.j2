@@ -1,0 +1,13 @@
+{
+  "id": {{ event.id | tojson }},
+  "timestamp": {{ event.timestamp | tojson }},
+  "module": {{ event.module | tojson }},
+  "type": {{ event.type | tojson }},
+  "severity": {{ event.severity | tojson }},
+  "title": {{ event.title | tojson }},
+  "message": {{ event.message | tojson }},
+  "metadata": {{ event.metadata | tojson }},
+  "tags": {{ event.tags | tojson }},
+  "correlation_id": {{ event.correlation_id | tojson }},
+  "source": "hermes"
+}

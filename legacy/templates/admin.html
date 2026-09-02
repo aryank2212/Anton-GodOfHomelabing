@@ -1,0 +1,600 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Console · LEGACY{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1>Admin Console</h1>
+    <p>Users, sessions, and everything written on this instance.</p>
+    <div class="admin-toolbar">
+        <span id="last-updated" class="admin-muted"></span>
+        <button id="refresh-btn" class="btn-primary login-btn admin-refresh">Refresh</button>
+    </div>
+</div>
+
+<section class="dashboard-grid" id="stat-cards"></section>
+
+<section class="admin-grid">
+
+    <div class="legacy-card admin-card">
+        <div class="card-label">Users</div>
+        <div class="table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>IP Address</th>
+                        <th>Status</th>
+                        <th>Entries</th>
+                        <th>Last Seen</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="users-body">
+                    <tr><td colspan="8" class="admin-muted">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="admin-sidebar">
+
+        <div class="legacy-card admin-card">
+            <div class="card-label">Recent Sessions</div>
+            <div id="sessions-list">
+                <p class="admin-muted">Loading…</p>
+            </div>
+        </div>
+
+        <div class="legacy-card admin-card">
+            <div class="card-label">Recent Activity</div>
+            <div id="audit-list">
+                <p class="admin-muted">Loading…</p>
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+<section class="legacy-card admin-card admin-entries-card">
+    <div class="admin-card-head">
+        <div class="card-label">All Entries</div>
+        <input id="entries-search" class="admin-search" type="search" placeholder="Search title, content, or user…">
+    </div>
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Visibility</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="entries-body">
+                <tr><td colspan="6" class="admin-muted">Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div id="profile-modal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-backdrop" onclick="closeProfile()"></div>
+    <div class="admin-modal-card">
+        <div class="admin-modal-head">
+            <h2 id="profile-title">Profile</h2>
+            <button class="admin-close" onclick="closeProfile()">&#10005;</button>
+        </div>
+        <div id="profile-body">
+            <p class="admin-muted">Loading…</p>
+        </div>
+    </div>
+</div>
+
+<div id="entry-modal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-backdrop" onclick="closeEntry()"></div>
+    <div class="admin-modal-card admin-modal-wide">
+        <div class="admin-modal-head">
+            <h2 id="entry-title">Entry</h2>
+            <button class="admin-close" onclick="closeEntry()">&#10005;</button>
+        </div>
+        <div id="entry-meta" class="admin-muted"></div>
+        <div id="entry-body" class="entry-reader">
+            <p class="admin-muted">Loading…</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var esc = function(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    };
+    var fmtTime = function(iso) {
+        if (!iso) return '—';
+        try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
+    };
+    var badge = function(role) {
+        var map = {'admin':'b-admin','user':'b-user','agent':'b-agent','read-only':'b-readonly'};
+        return '<span class="role-badge ' + (map[role] || '') + '">' + esc(role) + '</span>';
+    };
+
+    function renderStats(d) {
+        var cards = [
+            {label:'Online Now', value:d.online_users, cls:'stat-online'},
+            {label:'Total Users', value:d.total_users},
+            {label:'Active Sessions', value:d.active_sessions},
+            {label:'Total Entries', value:d.total_entries},
+            {label:'Verified Emails', value:d.verified_users},
+        ];
+        document.getElementById('stat-cards').innerHTML = cards.map(function(c) {
+            return '<div class="legacy-card"><div class="card-label">' + c.label +
+                '</div><h2 class="' + (c.cls||'') + '">' + c.value + '</h2></div>';
+        }).join('');
+    }
+
+    function renderUsers(d) {
+        var tb = document.getElementById('users-body');
+        if (!d.users.length) {
+            tb.innerHTML = '<tr><td colspan="8" class="admin-muted">No users yet.</td></tr>';
+            return;
+        }
+        tb.innerHTML = d.users.map(function(u) {
+            var initials = (u.display_name || u.username || '?').charAt(0).toUpperCase();
+            var online = u.online
+                ? '<span class="status-dot online" title="Online"></span><span class="status-text online-text">Online</span>'
+                : '<span class="status-dot" title="Offline"></span><span class="status-text">Offline</span>';
+            var email = u.email
+                ? esc(u.email) + (u.email_verified
+                    ? ' <span class="verified-badge" title="Email verified">&#10003;</span>'
+                    : ' <span class="unverified-badge" title="Not verified">!</span>')
+                : '<span class="admin-muted">—</span>';
+            var last = u.last_seen ? fmtTime(u.last_seen) : (u.last_login_at ? fmtTime(u.last_login_at) : 'Never');
+            return '<tr>'
+                + '<td><div class="admin-user"><span class="admin-avatar">' + esc(initials) + '</span>'
+                + '<div><div class="admin-name">' + esc(u.display_name || u.username) + '</div>'
+                + '<div class="admin-muted">@' + esc(u.username) + '</div></div></div></td>'
+                + '<td>' + email + '</td>'
+                + '<td>' + badge(u.role) + '</td>'
+                + '<td><code class="ip-code">' + esc(u.last_ip || '—') + '</code></td>'
+                + '<td>' + online + '</td>'
+                + '<td>' + u.entry_count + '</td>'
+                + '<td>' + last + '</td>'
+                + '<td><button class="admin-view-btn" data-id="' + u.id + '" data-name="' + esc(u.display_name || u.username) + '">View</button></td>'
+                + '</tr>';
+        }).join('');
+        tb.querySelectorAll('.admin-view-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                openProfile(btn.dataset.id, btn.dataset.name);
+            });
+        });
+    }
+
+    function renderSessions(d) {
+        var el = document.getElementById('sessions-list');
+        if (!d.sessions.length) {
+            el.innerHTML = '<p class="admin-muted">No sessions recorded.</p>';
+            return;
+        }
+        el.innerHTML = d.sessions.map(function(s) {
+            return '<div class="session-row">'
+                + '<div class="session-head"><span class="admin-name">' + esc(s.username || 'unknown') + '</span>'
+                + (s.active ? '<span class="status-dot online"></span>' : '<span class="status-dot"></span>')
+                + '</div>'
+                + '<div><code class="ip-code">' + esc(s.ip_address || '—') + '</code></div>'
+                + '<div class="admin-muted session-meta">' + fmtTime(s.created_at) + '</div>'
+                + '<div class="admin-muted session-ua" title="' + esc(s.user_agent) + '">' + esc(s.user_agent || '') + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    function renderAudit(d) {
+        var el = document.getElementById('audit-list');
+        if (!d.recent_audit.length) {
+            el.innerHTML = '<p class="admin-muted">No activity yet.</p>';
+            return;
+        }
+        el.innerHTML = d.recent_audit.map(function(a) {
+            var color = a.status === 'failure' ? 'danger' : 'normal';
+            return '<div class="audit-row"><span class="audit-action ' + color + '">' + esc(a.action) + '</span>'
+                + '<span class="admin-name">' + esc(a.actor_name || '') + '</span>'
+                + '<span class="admin-muted">' + esc(a.resource_type) + '</span>'
+                + '<span class="admin-muted">' + fmtTime(a.created_at) + '</span></div>';
+        }).join('');
+    }
+
+    var _allEntries = [];
+
+    function renderEntries(filterText) {
+        var tb = document.getElementById('entries-body');
+        var q = (filterText || '').toLowerCase().trim();
+        var list = _allEntries;
+        if (q) {
+            list = list.filter(function(e) {
+                return String(e.title || '').toLowerCase().indexOf(q) >= 0
+                    || String(e.content || '').toLowerCase().indexOf(q) >= 0
+                    || String(e.username || '').toLowerCase().indexOf(q) >= 0;
+            });
+        }
+        if (!list.length) {
+            tb.innerHTML = '<tr><td colspan="6" class="admin-muted">No entries' + (q ? ' match "' + esc(q) + '"' : ' yet.') + '</td></tr>';
+            return;
+        }
+        tb.innerHTML = list.slice(0, 200).map(function(e) {
+            return '<tr>'
+                + '<td><span class="admin-name">' + esc(e.username || 'system') + '</span></td>'
+                + '<td>' + esc(e.title || 'Untitled') + '</td>'
+                + '<td>' + esc(e.entry_type) + '</td>'
+                + '<td>' + esc(e.visibility) + '</td>'
+                + '<td>' + fmtTime(e.created_at) + '</td>'
+                + '<td><button class="admin-view-btn" data-id="' + e.id + '">Read</button></td>'
+                + '</tr>';
+        }).join('');
+        tb.querySelectorAll('.admin-view-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                openEntry(parseInt(btn.dataset.id, 10));
+            });
+        });
+    }
+
+    function loadEntries() {
+        return fetch('/api/admin/entries', {credentials:'same-origin'})
+            .then(function(r) { if (!r.ok) throw new Error('Failed to load entries'); return r.json(); })
+            .then(function(list) {
+                _allEntries = list;
+                renderEntries(document.getElementById('entries-search').value);
+            })
+            .catch(function(e) { console.error(e); });
+    }
+
+    function openEntry(id) {
+        var e = null;
+        for (var i = 0; i < _allEntries.length; i++) { if (_allEntries[i].id === id) { e = _allEntries[i]; break; } }
+        if (!e) return;
+        document.getElementById('entry-title').textContent = e.title || 'Untitled';
+        document.getElementById('entry-meta').textContent =
+            (e.username ? 'by ' + e.username + ' · ' : 'system · ')
+            + e.entry_type + ' · ' + e.visibility
+            + (e.mood ? ' · mood ' + e.mood : '')
+            + ' · ' + fmtTime(e.created_at);
+        document.getElementById('entry-body').innerHTML = '<div class="entry-content">' + esc(e.content || '') + '</div>';
+        document.getElementById('entry-modal').style.display = 'block';
+    }
+
+    function closeEntry() {
+        document.getElementById('entry-modal').style.display = 'none';
+    }
+
+    function loadAll() {
+        return Promise.all([loadDashboard(), loadEntries()]);
+    }
+
+    function loadDashboard() {
+        return fetch('/api/admin/dashboard', {credentials:'same-origin'})
+            .then(function(r) {
+                if (r.status === 403) { window.location.href = '/change-password'; throw new Error('redirect'); }
+                if (!r.ok) throw new Error('Failed to load dashboard');
+                return r.json();
+            })
+            .then(function(d) {
+                renderStats(d);
+                renderUsers(d);
+                renderSessions(d);
+                renderAudit(d);
+                document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+            })
+            .catch(function(e) { if (e.message !== 'redirect') console.error(e); });
+    }
+
+    function openProfile(userId, name) {
+        document.getElementById('profile-title').textContent = 'Profile — ' + name;
+        document.getElementById('profile-body').innerHTML = '<p class="admin-muted">Loading…</p>';
+        document.getElementById('profile-modal').style.display = 'block';
+        Promise.all([
+            fetch('/api/admin/users/' + userId + '/entries', {credentials:'same-origin'}).then(function(r){return r.json();}),
+            fetch('/api/admin/users/' + userId + '/sessions', {credentials:'same-origin'}).then(function(r){return r.json();}),
+        ]).then(function(results) {
+            renderProfile(userId, results[0], results[1]);
+        }).catch(function(e) { console.error(e); });
+    }
+
+    function renderProfile(userId, entries, sessions) {
+        var body = document.getElementById('profile-body');
+        var ipRows = sessions.length
+            ? sessions.map(function(s) {
+                return '<div class="session-row"><div><code class="ip-code">' + esc(s.ip_address || '—') + '</code>'
+                    + (s.active ? ' <span class="status-text online-text">active</span>' : '') + '</div>'
+                    + '<div class="admin-muted session-meta">' + fmtTime(s.created_at) + '</div>'
+                    + '<div class="admin-muted session-ua" title="' + esc(s.user_agent) + '">' + esc(s.user_agent || '') + '</div></div>';
+            }).join('')
+            : '<p class="admin-muted">No sessions recorded.</p>';
+
+        var entryHtml = entries.length
+            ? entries.map(function(e) {
+                var vis = esc(e.visibility || 'private');
+                return '<div class="profile-entry">'
+                    + '<div class="profile-entry-head">'
+                    + '<span class="admin-name">' + esc(e.title || 'Untitled') + '</span>'
+                    + '<span class="entry-meta">' + esc(e.entry_type) + ' · ' + vis + ' · ' + fmtTime(e.created_at) + '</span>'
+                    + '</div>'
+                    + '<div class="profile-entry-content">' + esc(e.content) + '</div>'
+                    + '</div>';
+            }).join('')
+            : '<p class="admin-muted">No entries yet.</p>';
+
+        body.innerHTML =
+            '<div class="profile-meta">'
+            + '<div><span class="card-label">Entry Count</span><h3>' + entries.length + '</h3></div>'
+            + '<div><span class="card-label">IP History</span><h3>' + sessions.length + '</h3></div>'
+            + '</div>'
+            + '<div class="profile-section"><div class="card-label">IP Addresses / Sessions</div>' + ipRows + '</div>'
+            + '<div class="profile-section"><div class="card-label">Writings (' + entries.length + ')</div>' + entryHtml + '</div>';
+    }
+
+    function closeProfile() {
+        document.getElementById('profile-modal').style.display = 'none';
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', function() {
+        var btn = this;
+        btn.disabled = true;
+        loadAll().finally(function() { btn.disabled = false; });
+    });
+
+    document.getElementById('entries-search').addEventListener('input', function() {
+        renderEntries(this.value);
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { closeProfile(); closeEntry(); }
+    });
+
+    loadAll();
+    setInterval(loadDashboard, 30000);
+})();
+
+window.closeProfile = function() {
+    var modal = document.getElementById('profile-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.closeEntry = function() {
+    var modal = document.getElementById('entry-modal');
+    if (modal) modal.style.display = 'none';
+};
+</script>
+
+<style>
+.admin-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+.admin-refresh {
+    width: auto;
+    padding: 0.45rem 1.2rem;
+    margin: 0;
+    font-size: 0.85rem;
+}
+.admin-muted { color: var(--secondary-color); font-size: 0.85rem; }
+.stat-online { color: var(--success); }
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+@media (max-width: 1000px) {
+    .admin-grid { grid-template-columns: 1fr; }
+}
+.admin-card { padding: 1.25rem; }
+
+.table-wrap { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.admin-table th {
+    text-align: left;
+    color: var(--secondary-color);
+    font-weight: 500;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.admin-table td {
+    padding: 0.7rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+.admin-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.admin-user { display: flex; align-items: center; gap: 0.7rem; }
+.admin-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--accent-color);
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+.admin-name { color: var(--text-color); font-weight: 500; }
+.ip-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--secondary-color);
+    background: var(--surface-2);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+}
+.verified-badge { color: var(--success); font-weight: 600; }
+.unverified-badge {
+    color: var(--danger); font-weight: 600;
+    border: 1px solid rgba(255,107,107,0.4); border-radius: 50%;
+    padding: 0 0.3rem; font-size: 0.75rem;
+}
+.status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--secondary-color); margin-right: 0.4rem;
+    vertical-align: middle;
+}
+.status-dot.online { background: var(--success); box-shadow: 0 0 6px rgba(126,207,149,0.7); }
+.status-text { color: var(--secondary-color); font-size: 0.85rem; }
+.online-text { color: var(--success); }
+
+.role-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--secondary-color);
+    background: var(--surface-2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.role-badge.b-admin { color: var(--accent-color); border-color: rgba(215,181,109,0.4); }
+
+.admin-view-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--accent-color);
+    padding: 0.3rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: all 0.2s;
+}
+.admin-view-btn:hover { border-color: var(--accent-color); background: rgba(215,181,109,0.08); }
+
+.admin-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.session-row {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+.session-row:last-child { border-bottom: none; }
+.session-head { display: flex; align-items: center; justify-content: space-between; }
+.session-meta { font-size: 0.78rem; }
+.session-ua {
+    font-size: 0.75rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 320px;
+}
+
+.audit-row {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    align-items: center;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+}
+.audit-row:last-child { border-bottom: none; }
+.audit-action {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+}
+.audit-action.normal { color: var(--accent-color); }
+.audit-action.danger { color: var(--danger); border-color: rgba(255,107,107,0.4); }
+
+.admin-modal { position: fixed; inset: 0; z-index: 1000; }
+.admin-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+.admin-modal-card {
+    position: relative;
+    margin: 4vh auto;
+    width: min(860px, 94vw);
+    max-height: 92vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    padding: 1.5rem;
+}
+.admin-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem;
+}
+.admin-modal-head h2 { font-weight: 400; letter-spacing: 0.03em; margin: 0; }
+.admin-close {
+    background: transparent; border: none; color: var(--secondary-color);
+    font-size: 1.1rem; cursor: pointer;
+}
+.admin-close:hover { color: var(--text-color); }
+
+.profile-meta { display: flex; gap: 2rem; margin-bottom: 1.25rem; }
+.profile-meta h3 { margin: 0; color: var(--accent-color); }
+.profile-section { margin-bottom: 1.5rem; }
+.profile-entry {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.7rem;
+}
+.profile-entry-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+    margin-bottom: 0.4rem;
+}
+.entry-meta { color: var(--secondary-color); font-size: 0.75rem; }
+.profile-entry-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.88rem;
+    color: var(--secondary-color);
+    max-height: 220px; overflow-y: auto;
+}
+
+.admin-entries-card { margin-top: 1.5rem; }
+.admin-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+}
+.admin-search {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-color);
+    border-radius: 8px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.85rem;
+    width: min(320px, 100%);
+    outline: none;
+}
+.admin-search:focus { border-color: var(--accent-color); }
+
+.admin-modal-wide { width: min(1000px, 94vw); }
+.entry-reader {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+.entry-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,44 @@
+# Forge policy — staged autonomy for Anton's execution layer.
+#
+# autonomy_level:
+#   0 = diagnose-only (read tools only; every act tool is refused)
+#   1 = approval (act tools require a Telegram thumbs-up via Hermes)
+#   2 = auto (preapproved low-risk actions run; everything else is approved)
+autonomy_level: 1
+
+# Git repos Forge may inspect / roll back. Referenced by name or by this path.
+managed_repos:
+  - path: /opt/anton/phoenix
+  - path: /opt/anton/hermes
+  - path: /opt/anton/sentinel
+  - path: /opt/anton/hermes-connector
+  - path: /home/ak/server
+
+# Compose projects Forge may scale. Only these services are addressable.
+compose_projects:
+  - name: homepage
+    path: /home/ak/docker/homepage
+    services: [homepage]
+  - name: monitoring
+    path: /home/ak/docker/monitoring
+    services: [grafana, prometheus]
+  - name: uptime-kuma
+    path: /home/ak/docker
+    services: [uptime-kuma]
+
+# Level-2 auto-run allowances (tool, target glob, max executions/hour).
+# Only low-risk tools are eligible unless force: true. Nothing is auto-run
+# unless listed here.
+preapproved:
+  - tool: docker_restart
+    target: "*"
+    max_per_hour: 5
+  - tool: docker_start
+    target: "*"
+    max_per_hour: 5
+
+# Cooldown / crash-loop escalation.
+cooldowns:
+  target_seconds: 900        # min between acts on the same target
+  crashloop_threshold: 3     # restart-family actions in the window -> approval
+  crashloop_window_seconds: 3600

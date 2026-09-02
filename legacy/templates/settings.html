@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Settings · LEGACY{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <h1>Settings</h1>
+
+    <p>Configure your memory intelligence.</p>
+
+</div>
+
+<div class="settings-grid">
+
+    <div class="legacy-card">
+        <div class="card-label">AI Status</div>
+        <p>
+            Embeddings:
+            {% if embeddings_available %}
+            <span style="color:var(--success)">Available</span>
+            {% else %}
+            <span style="color:var(--secondary-color)">Not installed</span>
+            {% endif %}
+        </p>
+        <p style="font-size:0.85rem;color:var(--secondary-color);margin-top:8px;">
+            Install sentence-transformers to enable semantic search and similar memories.
+        </p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Embedding Model</div>
+        <input id="embedding_model" class="settings-input" value="{{ settings.get('embedding_model', 'all-MiniLM-L6-v2') }}" placeholder="all-MiniLM-L6-v2">
+        <p style="font-size:0.85rem;color:var(--secondary-color);margin-top:8px;">
+            Model used for generating embeddings. Requires sentence-transformers.
+        </p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Ollama URL</div>
+        <input id="ollama_url" class="settings-input" value="{{ settings.get('ollama_url', 'http://localhost:11434') }}" placeholder="http://localhost:11434">
+        <p style="font-size:0.85rem;color:var(--secondary-color);margin-top:8px;">
+            URL for local Ollama instance. Used for AI reflections and summarization.
+        </p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">LLM Model</div>
+        <input id="llm_model" class="settings-input" value="{{ settings.get('llm_model', 'llama3.2') }}" placeholder="llama3.2">
+        <p style="font-size:0.85rem;color:var(--secondary-color);margin-top:8px;">
+            Model name for Ollama inference (e.g., llama3.2, mistral, phi).
+        </p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">AI Features</div>
+        <select id="ai_enabled" class="settings-select">
+            <option value="true" {% if settings.get('ai_enabled', 'true') == 'true' %}selected{% endif %}>Enabled</option>
+            <option value="false" {% if settings.get('ai_enabled', 'true') == 'false' %}selected{% endif %}>Disabled</option>
+        </select>
+        <p style="font-size:0.85rem;color:var(--secondary-color);margin-top:8px;">
+            Enable or disable all AI-powered features.
+        </p>
+    </div>
+
+    <div class="legacy-card">
+        <div class="card-label">Save</div>
+        <button id="saveSettings" class="primary-action">Save Settings</button>
+        <p id="settingsStatus" style="font-size:0.85rem;margin-top:12px;"></p>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('saveSettings').addEventListener('click', async function() {
+    var data = {
+        embedding_model: document.getElementById('embedding_model').value,
+        ollama_url: document.getElementById('ollama_url').value,
+        llm_model: document.getElementById('llm_model').value,
+        ai_enabled: document.getElementById('ai_enabled').value,
+    };
+    var resp = await fetch('/api/ai/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    var status = document.getElementById('settingsStatus');
+    if (resp.ok) {
+        status.textContent = 'Settings saved.';
+        status.style.color = 'var(--success)';
+    } else {
+        status.textContent = 'Failed to save settings.';
+        status.style.color = 'var(--danger)';
+    }
+});
+</script>
+{% endblock %}

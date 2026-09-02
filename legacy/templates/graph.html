@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Memory Graph · LEGACY{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <h1>Memory Graph</h1>
+
+    <p>Explore connections between your memories.</p>
+
+</div>
+
+<div id="graph-container"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/dist/vis-network.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/dist/dist/vis-network.min.css">
+<script>
+fetch('/api/ai/graph')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var nodes = new vis.DataSet(data.nodes.map(function(n) {
+            return {
+                id: n.id,
+                label: n.label,
+                title: n.title || n.label,
+                group: n.group || 'Journal'
+            };
+        }));
+        var edges = new vis.DataSet(data.edges.map(function(e) {
+            return {
+                from: e.from,
+                to: e.to,
+                value: e.value || 1,
+                title: e.title || '',
+                color: { opacity: 0.3 }
+            };
+        }));
+        var container = document.getElementById('graph-container');
+        var network = new vis.Network(container, { nodes: nodes, edges: edges }, {
+            physics: {
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: { gravitationalConstant: -40, centralGravity: 0.005 }
+            },
+            nodes: {
+                shape: 'dot',
+                size: 18,
+                font: { color: '#f4f5f6', size: 11, face: 'Inter' },
+                borderWidth: 2
+            },
+            edges: {
+                smooth: { type: 'continuous' },
+                width: 1
+            },
+            groups: {
+                'Journal': { color: { background: '#d7b56d', border: '#d7b56d' } },
+                'Dream': { color: { background: '#6ba3e0', border: '#6ba3e0' } },
+                'Idea': { color: { background: '#7ecf95', border: '#7ecf95' } },
+                'Reflection': { color: { background: '#e8a87c', border: '#e8a87c' } },
+                'Memory': { color: { background: '#c58bb5', border: '#c58bb5' } },
+                'Letter': { color: { background: '#8fc9a0', border: '#8fc9a0' } },
+                'Philosophy Essay': { color: { background: '#e0c68c', border: '#e0c68c' } },
+                'Engineering Log': { color: { background: '#a8b8d8', border: '#a8b8d8' } },
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200
+            }
+        });
+        network.on('click', function(params) {
+            if (params.nodes.length) {
+                window.location = '/entry/' + params.nodes[0];
+            }
+        });
+    })
+    .catch(function(err) {
+        document.getElementById('graph-container').innerHTML =
+            '<div class="empty-state"><h2>No connections yet.</h2><p>Write more entries with shared tags to build your memory graph.</p></div>';
+    });
+</script>
+{% endblock %}

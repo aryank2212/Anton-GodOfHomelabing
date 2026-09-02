@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}New Entry · LEGACY{% endblock %}
+
+{% block content %}
+
+<div class="write-layout">
+
+    <aside class="write-sidebar">
+
+        <div class="sidebar-card">
+
+            <div class="card-label">
+                TODAY
+            </div>
+
+            <h2>{{ now.strftime("%A") if now is defined else "Today" }}</h2>
+
+            <p>
+                One page today becomes one memory tomorrow.
+            </p>
+
+        </div>
+
+        <div class="sidebar-card">
+
+            <div class="card-label">
+                ENTRY TYPE
+            </div>
+
+            <select id="entryType">
+
+                <option value="Journal">Journal</option>
+                <option value="Dream">Dream</option>
+                <option value="Idea">Idea</option>
+                <option value="Reflection">Reflection</option>
+                <option value="Memory">Memory</option>
+                <option value="Letter">Letter</option>
+
+            </select>
+
+        </div>
+
+        <div class="sidebar-card">
+
+            <div class="card-label">
+                MOOD
+            </div>
+
+            <select id="mood">
+
+                <option value="">No mood</option>
+                <option value="Happy">😊 Happy</option>
+                <option value="Calm">😌 Calm</option>
+                <option value="Neutral">😐 Neutral</option>
+                <option value="Thoughtful">🤔 Thoughtful</option>
+                <option value="Motivated">🔥 Motivated</option>
+                <option value="Tired">😴 Tired</option>
+                <option value="Sad">😔 Sad</option>
+                <option value="Angry">😡 Angry</option>
+
+            </select>
+
+        </div>
+
+    </aside>
+
+    <section class="editor-panel">
+
+        <input
+            id="title"
+            class="editor-title"
+            placeholder="Untitled"
+        >
+
+        <input
+            id="tags"
+            class="editor-tags"
+            placeholder="Tags (comma separated)"
+        >
+
+        <textarea
+            id="content"
+            class="editor-content"
+            placeholder="Start writing..."
+        ></textarea>
+
+        <div class="editor-bottom">
+
+            <span>
+                Markdown supported
+            </span>
+
+            <button id="saveEntry" class="primary-action">
+                Save Entry
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock %}

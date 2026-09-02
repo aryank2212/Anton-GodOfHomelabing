@@ -1,0 +1,30 @@
+services:
+  sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: anton-sentinel:1.0.0
+    container_name: anton-sentinel
+    restart: unless-stopped
+    env_file:
+      - .env
+    network_mode: host
+    volumes:
+      - sentinel_data:/data
+      # Lets the docker observer manage the fleet through the host socket.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Live-tune observers/rules/devices/vendors without rebuilding.
+      - ./app/config:/app/app/config:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/health', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  sentinel_data:

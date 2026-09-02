@@ -1,0 +1,144 @@
+# Hermes rule configuration.
+#
+# Rules are evaluated top-down. The first rule whose `when` conditions match
+# an event wins. The `when` block maps event fields to expected values.
+# Values support fnmatch wildcards ("*", "?") and lists (event value must be in list).
+# A missing or unmatched rule set falls back to "log".
+#
+# `action` is one of: ignore | log | notify | remediate
+# For `action: notify`, `providers` lists which provider(s) to use.
+# Use "all" to notify through every configured provider.
+# For `action: remediate`, `remediation` describes the action to run and
+# `providers` (optional) notifies afterwards. Remediation is gated by
+# HERMES_REMEDIATION_ENABLED (see .env.example).
+
+version: 1
+
+rules:
+  - name: "ignore_debug_watcher"
+    action: ignore
+    when:
+      module: "watcher"
+      severity: "debug"
+
+  - name: "netdata_healthbeat"
+    action: notify
+    when:
+      module: "netdata"
+      type: "health"
+    providers: ["telegram"]
+
+  # Events from the hermes-connector fleet/endpoint watchers. Container
+  # failures are error/critical already (notify_errors) but these rules make
+  # the intent explicit and also surface the restarting warning.
+  - name: "notify_docker_container_down"
+    action: notify
+    when:
+      module: "docker"
+      type: "container.down"
+    providers: ["telegram"]
+
+  - name: "notify_docker_container_unhealthy"
+    action: notify
+    when:
+      module: "docker"
+      type: "container.unhealthy"
+    providers: ["telegram"]
+
+  - name: "notify_docker_container_restarting"
+    action: notify
+    when:
+      module: "docker"
+      type: "container.restarting"
+    providers: ["telegram"]
+
+  - name: "notify_infra_endpoint_down"
+    action: notify
+    when:
+      module: "infra"
+      type: "endpoint.down"
+    providers: ["telegram"]
+
+  - name: "notify_watcher_device_offline"
+    action: notify
+    when:
+      module: "watcher"
+      type: "device.offline"
+    providers: ["telegram"]
+
+  # Argus (internet ingestion + intelligence subsystem) findings.
+  - name: "notify_argus_report_published"
+    action: notify
+    when:
+      module: "argus"
+      type: "report_published"
+    providers: ["telegram"]
+
+  - name: "notify_argus_dots_watch_update"
+    action: notify
+    when:
+      module: "argus"
+      type: "dots_watch_update"
+    providers: ["telegram"]
+
+  - name: "notify_argus_hypothesis_confirmed"
+    action: notify
+    when:
+      module: "argus"
+      type: "hypothesis_confirmed"
+    providers: ["telegram"]
+
+  - name: "notify_argus_change_detected"
+    action: notify
+    when:
+      module: "argus"
+      type: "change_detected"
+      severity: ["error", "critical"]
+    providers: ["telegram"]
+
+  - name: "log_info"
+    action: log
+    when:
+      severity: "info"
+
+  - name: "log_warning"
+    action: log
+    when:
+      severity: "warning"
+
+  - name: "notify_errors"
+    action: notify
+    when:
+      severity: "error"
+    providers: ["all"]
+
+  - name: "notify_critical"
+    action: notify
+    when:
+      severity: "critical"
+    providers: ["all"]
+
+  # Example: restart a container when it crashes, then tell Telegram.
+  # Needs HERMES_REMEDIATION_ENABLED=true and docker access from Hermes.
+  # - name: "restart_gitea_on_crash"
+  #   action: remediate
+  #   when:
+  #     module: "gitea"
+  #     severity: "critical"
+  #   remediation:
+  #     kind: docker_restart
+  #     container: "gitea"
+  #   providers: ["telegram"]
+
+  # Example: every `hermes/event.storm` event (burst of repeated events)
+  # gets escalated to Telegram so nobody is spammed by the individual events.
+  # - name: "notify_on_storm"
+  #   action: notify
+  #   when:
+  #     module: "hermes"
+  #     type: "event.storm"
+  #   providers: ["telegram"]
+
+  - name: "default_log"
+    action: log
+    when: {}

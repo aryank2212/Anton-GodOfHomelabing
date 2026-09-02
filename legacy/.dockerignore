@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.venv
+backend/venv
+venv
+.git
+.gitignore
+test.db
+test.db-wal
+test.db-shm
+*.db
+database/
+logs/
+backups/
+.dockerignore

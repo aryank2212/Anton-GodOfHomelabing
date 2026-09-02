@@ -1,0 +1,37 @@
+[project]
+name = "anton-hermes"
+version = "1.0.0"
+description = "Hermes — the single communication and event system for Anton."
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "Proprietary" }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "C4", "RUF"]
+# B008: Query() in FastAPI defaults is the framework idiom.
+# RUF001: intentional emoji in severity labels.
+ignore = ["SIM108", "C408", "B008", "RUF001"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+mypy_path = "app"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+exclude = ["tests/"]

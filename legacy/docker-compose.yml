@@ -1,0 +1,31 @@
+
+services:
+  legacy:
+    build: .
+    container_name: legacy_app
+    ports:
+      - "5050:8000"
+    volumes:
+      - ./database:/app/database
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+      - ./config.yaml:/app/config.yaml
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      - LEGACY_CONFIG=/app/config.yaml
+      - LOG_LEVEL=INFO
+      - HF_HUB_DISABLE_XET=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; c=http.client.HTTPConnection('localhost',8000); c.request('GET','/health'); r=c.getresponse(); exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.legacy.rule=Host(`legacy.local`)"
+      - "traefik.http.services.legacy.loadbalancer.server.port=8000"
+
+volumes:
+  hf_cache:

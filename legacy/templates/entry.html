@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ entry.title or "Memory" }}
+{% endblock %}
+
+{% block content %}
+
+<article class="entry-reader">
+
+    <div class="entry-header">
+
+        <div class="entry-meta">
+
+            <span class="entry-type">
+                {{ entry.entry_type }}
+            </span>
+
+            <span class="entry-date">
+                {{ entry.created_at | kanji_date }}
+            </span>
+
+            {% if entry.mood %}
+            <span class="entry-mood">
+                {{ entry.mood | mood_display }}
+            </span>
+            {% endif %}
+
+        </div>
+
+        <h1>
+            {{ entry.title or "Untitled Memory" }}
+        </h1>
+
+        {% set tags = entry.tags | parse_tags %}
+        {% if tags %}
+        <div class="tag-list">
+            {% for tag in tags %}
+            <a href="/timeline?tag={{ tag }}" class="tag-pill">#{{ tag }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if entry_entities %}
+        <div class="entity-list">
+            {% for entity in entry_entities %}
+            <a href="/timeline?entity={{ entity.name }}" class="entity-pill">{{ entity.name }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+
+    <div class="reader-quote">
+
+        "{{ quote }}"
+
+    </div>
+
+    <div class="reader-content">
+
+        {{ content_html|safe }}
+
+    </div>
+
+    {% if related_entries %}
+    <div class="related-section">
+
+        <div class="card-label">Related Memories</div>
+
+        <div class="related-grid">
+
+            {% for r in related_entries %}
+            <a href="/entry/{{ r.id }}" class="related-card">
+
+                <span class="entry-type">{{ r.entry_type }}</span>
+
+                <h3>{{ r.title or "Untitled Memory" }}</h3>
+
+                <p>{{ r.content[:120] }}{% if r.content|length > 120 %}...{% endif %}</p>
+
+            </a>
+            {% endfor %}
+
+        </div>
+
+    </div>
+    {% endif %}
+
+    {% if similar_entries and embeddings_available %}
+    <div class="related-section">
+
+        <div class="card-label">Semantically Similar</div>
+
+        <div class="related-grid">
+
+            {% for s in similar_entries %}
+            <a href="/entry/{{ s.id }}" class="related-card">
+
+                <h3>{{ s.title }}</h3>
+
+                <p>Similarity: {{ (s.similarity * 100) | int }}%</p>
+
+            </a>
+            {% endfor %}
+
+        </div>
+
+    </div>
+    {% endif %}
+
+    <div class="reader-footer">
+
+        <a href="/timeline" class="secondary-action">
+            ← Back to Timeline
+        </a>
+
+        <a href="/write" class="primary-action">
+            New Entry
+        </a>
+
+    </div>
+
+</article>
+
+{% endblock %}

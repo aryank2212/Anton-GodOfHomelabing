@@ -1,0 +1,212 @@
+# Phoenix — configuration (YAML).
+#
+# Everything about *what to monitor* and *how to recover* lives here.
+# Process-level settings (ports, database, Hermes URL) are controlled via
+# environment variables, see ``.env.example``.
+
+version: 1
+
+scheduler:
+  tick_interval: 10          # master scheduler tick, seconds
+  max_concurrent_checks: 8   # checks that may run at once
+
+# ---------------------------------------------------------------------------
+# Health monitors
+#
+# A monitor is a single health check. Monitors are owned by exactly one
+# component (see below). Add new monitor types by subclassing the Monitor
+# base class and registering them in the monitor registry.
+#
+# NOTE: monitors whose targets do not exist on this host are disabled below
+# (docker_daemon -> no "docker" container, postgres/paperless -> no such
+# containers, phoenix_service -> no systemd unit, paperless_http -> wrong
+# port inside the container). Re-enable them once the targets exist.
+# ---------------------------------------------------------------------------
+monitors:
+  # --- Docker containers ---------------------------------------------------
+  - name: docker_daemon
+    type: docker
+    interval: 30
+    enabled: false
+    params:
+      container: docker
+      expected_status: running
+
+  - name: postgres_container
+    type: docker
+    interval: 30
+    enabled: false
+    params:
+      container: postgres
+      expected_status: running
+
+  - name: paperless_container
+    type: docker
+    interval: 30
+    enabled: false
+    params:
+      container: paperless
+      expected_status: running
+
+  - name: jellyfin_container
+    type: docker
+    interval: 60
+    enabled: true
+    params:
+      container: jellyfin
+      expected_status: running
+
+  - name: gitea_container
+    type: docker
+    interval: 60
+    enabled: true
+    params:
+      container: gitea
+      expected_status: running
+
+  # --- systemd services ----------------------------------------------------
+  - name: phoenix_service
+    type: systemd
+    interval: 60
+    enabled: false
+    params:
+      unit: phoenix.service
+      expected_state: active
+
+  # --- HTTP endpoints ------------------------------------------------------
+  - name: paperless_http
+    type: http
+    interval: 60
+    enabled: false
+    params:
+      url: http://127.0.0.1:8000/health
+      timeout: 5
+      expected_status: 200
+
+  # --- Host level ----------------------------------------------------------
+  - name: disk_root
+    type: disk
+    interval: 120
+    enabled: true
+    params:
+      path: /
+      threshold_pct: 90
+
+  - name: memory_host
+    type: memory
+    interval: 60
+    enabled: true
+    params:
+      threshold_pct: 95
+
+  - name: cpu_host
+    type: cpu
+    interval: 60
+    enabled: true
+    params:
+      threshold_pct: 95
+
+  - name: network_gateway
+    type: network
+    interval: 120
+    enabled: true
+    params:
+      host: 192.168.1.1
+      port: 443
+      timeout: 5
+
+# ---------------------------------------------------------------------------
+# Components
+#
+# A component is a logical service of Anton. Failures detected by its
+# monitors become incidents; the recovery policy below is then executed.
+# ---------------------------------------------------------------------------
+components:
+  - name: docker
+    monitors: [docker_daemon]
+    recovery:
+      strategy: noop
+      verify: false
+      retry:
+        attempts: 1
+
+  - name: postgres
+    monitors: [postgres_container]
+    depends_on: [docker]
+    recovery:
+      strategy: docker_restart
+      params:
+        container: postgres
+      retry:
+        attempts: 3
+        backoff: 5
+        multiplier: 2
+        max_backoff: 60
+      escalate:
+        severity: critical
+
+  - name: paperless
+    monitors: [paperless_container, paperless_http]
+    depends_on: [postgres]
+    recovery:
+      strategy: docker_restart
+      params:
+        container: paperless
+      retry:
+        attempts: 3
+        backoff: 5
+        multiplier: 2
+        max_backoff: 60
+      escalate:
+        severity: error
+
+  - name: jellyfin
+    monitors: [jellyfin_container]
+    depends_on: [docker]
+    recovery:
+      strategy: docker_restart
+      params:
+        container: jellyfin
+      retry:
+        attempts: 3
+        backoff: 5
+        multiplier: 2
+        max_backoff: 60
+      escalate:
+        severity: warning
+
+  - name: gitea
+    monitors: [gitea_container]
+    depends_on: [docker]
+    recovery:
+      strategy: docker_restart
+      params:
+        container: gitea
+      retry:
+        attempts: 3
+        backoff: 5
+        multiplier: 2
+        max_backoff: 60
+      escalate:
+        severity: warning
+
+  - name: phoenix
+    monitors: [phoenix_service]
+    recovery:
+      strategy: systemd_restart
+      params:
+        unit: phoenix.service
+      retry:
+        attempts: 2
+        backoff: 5
+      escalate:
+        severity: critical
+
+  - name: host
+    monitors: [disk_root, memory_host, cpu_host, network_gateway]
+    recovery:
+      strategy: noop
+      retry:
+        attempts: 1
+      escalate:
+        severity: error

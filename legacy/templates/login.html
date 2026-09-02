@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}LEGACY — Login{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <h2>Sign in to LEGACY</h2>
+        <p class="login-subtitle">Your permanent memory system</p>
+
+        {% if registered %}
+        <div id="register-success" class="login-success">Account created. Sign in to begin.</div>
+        {% endif %}
+
+        <form id="login-form" class="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autocomplete="username" placeholder="Enter your username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Enter your password">
+            </div>
+
+            <div id="login-error" class="login-error" style="display:none;"></div>
+
+            <button type="submit" class="btn-primary login-btn">Sign In</button>
+        </form>
+
+        {% if not auth_enabled %}
+        <p class="login-note">Authentication is disabled. <a href="/">Go to dashboard</a></p>
+        {% else %}
+        <p class="login-note">New here? <a href="/register">Create an account</a></p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.getElementById('login-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const errorEl = document.getElementById('login-error');
+    errorEl.style.display = 'none';
+
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const btn = this.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Signing in...';
+
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, password}),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || data.error?.message || 'Login failed');
+        }
+
+        const data = await response.json();
+
+        document.cookie = `session_id=${data.session_id}; path=/; max-age=${7 * 86400}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+
+        window.location.href = data.must_change_password ? '/change-password' : '/';
+    } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+    }
+});
+</script>
+
+<style>
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+}
+
+.login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.login-card h2 {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+}
+
+.login-subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 2rem;
+}
+
+.login-form .form-group {
+    margin-bottom: 1.25rem;
+}
+
+.login-form label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.login-form input {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.login-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.login-btn {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 1rem;
+}
+
+.login-error {
+    background: rgba(220, 50, 50, 0.15);
+    border: 1px solid rgba(220, 50, 50, 0.3);
+    color: #e06060;
+    padding: 0.6rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.login-note {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 1rem;
+}
+
+.login-success {
+    background: rgba(80, 200, 120, 0.15);
+    border: 1px solid rgba(80, 200, 120, 0.3);
+    color: #60c080;
+    padding: 0.6rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.login-note a {
+    color: var(--accent);
+}
+</style>
+{% endblock %}

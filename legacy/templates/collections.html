@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Collections · LEGACY{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <h1>Collections</h1>
+
+    <p>Grouped memories by topic and theme.</p>
+
+</div>
+
+{% if collections %}
+
+<section class="dashboard-grid">
+
+    {% for c in collections %}
+    <a href="/api/ai/collections/{{ c.id }}" class="legacy-card">
+
+        <div class="card-label">{{ c.name }}</div>
+
+        <h2>{{ c.entry_count }} entries</h2>
+
+        {% if c.description %}
+        <p>{{ c.description }}</p>
+        {% endif %}
+
+    </a>
+    {% endfor %}
+
+</section>
+
+{% else %}
+
+<div class="empty-state">
+
+    <h2>No collections yet.</h2>
+
+    <p>Create collections from your tags to group related memories.</p>
+
+</div>
+
+{% endif %}
+
+<h2 class="section-title">Create from Tags</h2>
+
+<p style="color:var(--secondary-color);margin-bottom:24px;">
+    Click a tag to create a new collection from all entries with that tag.
+</p>
+
+<div class="tag-list">
+
+    {% for tag in auto_tags %}
+    <a href="/collections?create={{ tag }}" class="tag-pill create-collection">#{{ tag }}</a>
+    {% endfor %}
+
+</div>
+
+{% if not auto_tags %}
+
+<div class="empty-state">
+
+    <h2>No tags found.</h2>
+
+    <p>Add tags to your entries and they will appear here.</p>
+
+</div>
+
+{% endif %}
+
+{% endblock %}
